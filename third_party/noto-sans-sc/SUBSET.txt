@@ -1,0 +1,6 @@
+Noto Sans SC (variable), subset for Spatial Ruler. A Modified Version under the SIL OFL 1.1.
+source: NotoSansSC-VariableFont_wght.ttf  Version 2.004-H2;hotconv 1.0.118;makeotfexe 2.5.65603
+axes kept: [('wght', 100.0, 100.0, 900.0)]
+glyphs: 393  characters: 341
+characters: °±·×÷—‘’“”…‰′″№←↑→↓↔↕↗■□▲△◆○◌●✓　、。〈〉《》「」『』【】一七万三上下不两个中串主么九也了二于五亮人代会估位低住你侧便保候偏做停先全八六关内再准出分判别到前动十千厅压厘去反取变口只叫可右名后向听和哪四回圈在地场坐块垫培备外多大天头套好始姿子字存它完定实客容宽寸对小少就尺尾左差已常平应度建开式影往待得微心态怎悬感慢成我战所手打找把报拖拟指按挑捏掉推提摆摇收放方旋无早时是显暂替最有机杆来松板柄标根框桩检模次正比毫气水没油测消淡清点照牌现用由百的目看真眼着睛示离科稳穿站第算米线练绕继绩绪续缩置翼考联背能自航花英落虚行视言计认训议设识试话语课调走起超距跟路践踪身转轮边过迎近还这进远连追退选那里重量钮错键门间阵陆降随难零静面音项风飞高默！（），：；？｜～
+not in the source font (left to the system fallback): U+270B U+2726 U+27F2 U+29B8

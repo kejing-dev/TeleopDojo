@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- design appIcon: 遥操蓝 #2B6CB0 (kept apart from Robot Cell Fit's warning orange) -->
+    <color name="ic_launcher_background">#FF2B6CB0</color>
+</resources>
