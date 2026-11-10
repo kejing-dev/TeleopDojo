@@ -13,6 +13,8 @@ object TdColors {
     val Target = Color(0xFF3FD0E0) // design-style: fixed-figma-color 光球未亮
     val Done = Color(0xFF5FD38A) // design-style: fixed-figma-color 已亮 / 放稳
     val Tether = Color(0xFFFFC72C) // design-style: fixed-figma-color 控制线
+    // stars on the window glass: the tether yellow is ~1.5:1 there, this dark amber keeps the star shape (>= 3:1, large)
+    val StarInk = Color(0xFF6B4400) // design-style: fixed-figma-color stars on glass
     val OnFill = Color(0xFF16181C) // design-style: fixed-figma-color ink on semantic fills
 
     // ColorScheme roles (palette.theme: vibrant + the semantic set)
@@ -24,6 +26,9 @@ object TdColors {
     // pills and tags: opaque dark slate with light text (readable over any room)
     val TagBg = Color(0xFF1E2329) // design-style: fixed-figma-color tag background
     val TagInk = Color(0xFFE8EDF2) // design-style: fixed-figma-color tag text
+    // normal keys, drill cards, steppers, mute: opaque slate + TagInk. The system button fill over the window glass let the
+    // dark labelPrimary read 1.7-3.7:1 on the emulator (v0.1.0 contrast table)
+    val KeyFill = Color(0xFF353B43) // design-style: fixed-figma-color normal key fill
 
     // 3D (entities3d)
     val ArmWhite = Color(0xFFE4E6E8) // design-style: fixed-figma-color UR5e links

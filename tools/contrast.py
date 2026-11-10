@@ -54,35 +54,21 @@ def hx(rgb):
     return "#%02X%02X%02X" % tuple(rgb)
 
 
-INK = hexrgb("#1E2A33")  # DsColors.OnFill / TagBg
-INTERACTION = hexrgb("#FFB53D")
-PASSABLE = hexrgb("#4FD18B")
-ALERT = hexrgb("#FF8A3D")
-ERROR = hexrgb("#FF6B6B")
-ERROR_RENDERED = hexrgb("#ED7470")  # the error red as the emulator draws it (QA #2 measured)
-ON_ERROR = hexrgb("#0A0D10")  # DsColors.OnError (v0.1.1)
-DANGER_FILL = hexrgb("#FF8A85")  # DsColors.DangerFill (v0.1.1, danger keys only)
-TAG_BG = hexrgb("#1E2A33")
-TAG_INK = hexrgb("#E6F1F7")
-WARN_BG = hexrgb("#4A2E0A")
-WARN_INK = hexrgb("#FFD9A8")
-ERR_BG = hexrgb("#4A1414")
-ERR_INK = hexrgb("#FFC5C5")
-SKY = hexrgb("#2B7FD9")
-WHITE = (255, 255, 255)
+INK = hexrgb("#16181C")  # TdColors.OnFill
+FIXED_COLORS = dict(
+    interaction="#FFC72C", clutched="#5FD38A", released="#9A9A96", paused="#FFA62B", error="#FF5F52", done="#5FD38A",
+    danger="#FF8A80", tag_bg="#1E2329", tag_ink="#E8EDF2", key_fill="#353B43", star="#6B4400", target="#3FD0E0",
+)
+C = {k: hexrgb(v) for k, v in FIXED_COLORS.items()}
 
-# (pair, where it is used, fg rgb, bg rgb, threshold)
 FIXED = [
-    ("ink #1E2A33 / interaction #FFB53D", "primary keys (好，开始 / 放在这里 / 起飞 / 暂停 / 继续 / 重飞 / 好了 / 再试一次), selected segment items (mode, wind, judging, settings segments)", INK, INTERACTION, 4.5),
-    ("ink #1E2A33 / passable #4FD18B", "result pill 过 ✓, switched-on toggles (虚拟摇杆 / 方向提示 when on)", INK, PASSABLE, 4.5),
-    ("ink #1E2A33 / alert #FF8A3D", "result pill 差一点", INK, ALERT, 4.5),
-    ("on-error #0A0D10 / danger fill #FF8A85", "danger keys 退出应用 / 退出 / 清掉 (20 sp bold; v0.1.1, was #1E2A33 on #FF6B6B 5.28, screenshot 4.1-4.2)", ON_ERROR, DANGER_FILL, 4.5),
-    ("on-error #0A0D10 / error #FF6B6B", "result pill 再来, S13 error badge icon (v0.1.1; was #1E2A33 5.28)", ON_ERROR, ERROR, 4.5),
-    ("on-error #0A0D10 / error as rendered #ED7470", "same, against the red the emulator actually draws", ON_ERROR, ERROR_RENDERED, 4.5),
-    ("tag ink #E6F1F7 / tag #1E2A33", "status pills (chip 框内 12/20 s …), picker best chips, idle main key (准备中 / 着陆), chain ✓ pills, height tag, 3D labels (gate 1-4, 0°-270°, 右杆→ / 右杆↑)", TAG_INK, TAG_BG, 4.5),
-    ("warn ink #FFD9A8 / warn #4A2E0A", "hint line 飞出场地了 / 飞机在你身边了 / 落得有点重", WARN_INK, WARN_BG, 4.5),
-    ("err ink #FFC5C5 / err #4A1414", "hint line 落重了 · 飞机回垫子, chain ✗ pills", ERR_INK, ERR_BG, 4.5),
-    ("white / sky blue #2B7FD9", "lesson pictogram glyphs on their disc (icons: >= 3:1)", WHITE, SKY, 3.0),
+    ("ink #16181C / interaction #FFC72C", "primary keys, selected options, coach / level pictogram glyphs", INK, C["interaction"], 4.5),
+    ("ink #16181C / clutched #5FD38A", "status pill 握住, demo badge, scorecard demo pill", INK, C["clutched"], 4.5),
+    ("ink #16181C / released #9A9A96", "status pill 松开, oops pills at 0", INK, C["released"], 4.5),
+    ("ink #16181C / paused #FFA62B", "status pill 暂停, oops pills > 0, pause pictogram", INK, C["paused"], 4.5),
+    ("ink #16181C / danger #FF8A80", "danger keys 退出应用 / 退出 / 清掉 / confirm 重来 / 回首页 (bold)", INK, C["danger"], 4.5),
+    ("tag ink #E8EDF2 / tag slate #1E2329", "S04 banner, live hint box, control chip, tip tag and 平视前方 on the Stage", C["tag_ink"], C["tag_bg"], 4.5),
+    ("tag ink #E8EDF2 / key fill #353B43", "normal keys, drill cards, steppers, Mute (v0.1.0 fix)", C["tag_ink"], C["key_fill"], 4.5),
 ]
 
 

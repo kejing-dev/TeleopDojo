@@ -195,6 +195,10 @@ class TdScene {
     private var startupLogs = 0
     private var robotOpacity = 1f
 
+    /** Debug `head x y z [pitch]`: added to the tracked head pose. */
+    var debugHeadShift = Vec3.ZERO
+    var debugHeadPitchDeg = 0f
+
     /** Debug `view DEG`: placements use the head turned by DEG (+ = left); the emulator camera cannot turn. */
     var viewYawDeg = 0f
 
@@ -431,7 +435,9 @@ class TdScene {
             // a first frame of all zeros + identity is "not tracking yet" (hand-sign teacher lesson)
             val zero = it.position.length < 1e-3f && abs(it.rotation.w) > 0.99999f
             if (!zero) {
-                pose = it
+                // debug `head`: a shifted / pitched head, as if you leaned in or looked down (the emulator camera is fixed)
+                pose = if (debugHeadShift == Vec3.ZERO && debugHeadPitchDeg == 0f) it
+                else HeadPose(it.position + debugHeadShift, (it.rotation * Quat4.axisAngle(Vec3.RIGHT, Num.rad(debugHeadPitchDeg))).normalized())
                 if (!hasHead) headSinceMs = now
                 hasHead = true
             }

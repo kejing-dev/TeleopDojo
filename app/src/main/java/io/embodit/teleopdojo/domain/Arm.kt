@@ -75,6 +75,7 @@ class Arm {
         latch.reset()
         followFrom = null
         needRelease = true
+        lostWhileClutched = false
     }
 
     fun resetPose() {
@@ -112,7 +113,12 @@ class Arm {
                     }
                     grabbedNow = true
                     lostWhileClutched = false
-                } else latch.reset()
+                } else {
+                    // grip pressed while the controller is not tracked: same as losing it while held (S22)
+                    latch.reset()
+                    lostWhileClutched = true
+                    needRelease = true
+                }
             } else {
                 clutch.release()
                 followFrom = null

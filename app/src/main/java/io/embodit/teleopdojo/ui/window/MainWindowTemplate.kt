@@ -57,7 +57,8 @@ fun MainWindow(pages: List<MainWindowPage>, settings: MainWindowSettings, curren
     require(pages.size in 1..6) { "TabBar holds at most 7 items: 6 pages + Settings" }
     val page = pages.firstOrNull { it.id == current }
 
-    Box(Modifier.fillMaxSize()) {
+    // glassRefresh: re-records the window layer a few times after it comes up (the emulator's first glass frame can be black)
+    Box(Modifier.fillMaxSize().then(io.embodit.teleopdojo.ui.components.glassRefresh())) {
         if (page != null) {
             Box(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 20.dp)) { page.content() }
         } else {

@@ -81,10 +81,10 @@ internal fun Key(text: String, name: String, icon: Int? = null, kind: KeyKind = 
     val colors = when (kind) {
         KeyKind.PRIMARY -> ButtonDefaults.buttonColors(containerColor = TdColors.Interaction, contentColor = TdColors.OnFill)
         KeyKind.DANGER -> ButtonDefaults.buttonColors(containerColor = TdColors.DangerFill, contentColor = TdColors.OnFill)
-        KeyKind.NORMAL -> ButtonDefaults.buttonColors()
+        KeyKind.NORMAL -> ButtonDefaults.buttonColors(containerColor = TdColors.KeyFill, contentColor = TdColors.TagInk)
     }
     val ink = when (kind) {
-        KeyKind.NORMAL -> PicoTheme.colorScheme.labelPrimary
+        KeyKind.NORMAL -> TdColors.TagInk
         else -> TdColors.OnFill
     }
     val style = if (kind == KeyKind.DANGER) TdType.button.copy(fontWeight = FontWeight.Bold) else TdType.button
@@ -158,7 +158,7 @@ private fun OptRow(label: String, name: String, height: Dp = 52.dp, note: String
     Row(Modifier.fillMaxWidth().height(height).probe("row_$name"), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(text = label, style = TdType.body, color = PicoTheme.colorScheme.labelPrimary, maxLines = 2, onTextLayout = fits("row/$name"))
-            if (note != null) Text(text = note, style = TdType.label.copy(fontSize = 14.sp), color = PicoTheme.colorScheme.labelSecondary, maxLines = 2, onTextLayout = fits("row/${name}_note"))
+            if (note != null) Text(text = note, style = TdType.label.copy(fontSize = 14.sp), color = PicoTheme.colorScheme.labelPrimary, maxLines = 2, onTextLayout = fits("row/${name}_note"))
         }
         Spacer(Modifier.width(8.dp))
         control()
@@ -175,7 +175,7 @@ private fun Body(text: String, name: String, modifier: Modifier = Modifier, maxL
 
 @Composable
 private fun Small(text: String, name: String, modifier: Modifier = Modifier, maxLines: Int = 3) =
-    Text(text = text, style = TdType.label, color = PicoTheme.colorScheme.labelSecondary, maxLines = maxLines, modifier = modifier.probe(name), onTextLayout = fits("small/$name"))
+    Text(text = text, style = TdType.label, color = PicoTheme.colorScheme.labelPrimary, maxLines = maxLines, modifier = modifier.probe(name), onTextLayout = fits("small/$name"))
 
 // ================================================================================================= copy helpers
 
@@ -257,17 +257,18 @@ internal fun TopRow(state: TdUiState, onEvent: (Ui) -> Unit) {
         }
         Column(Modifier.weight(1f)) {
             Text(text = rs(R.string.gripper_mm, state.live.openingMm), style = TdType.label, color = PicoTheme.colorScheme.labelPrimary, maxLines = 1, modifier = Modifier.probe("gripper_mm"), onTextLayout = fits("top/gripper_mm"))
-            Text(text = rs(if (state.prefs.leftHanded) R.string.keys_left else R.string.keys_right), style = TdType.label.copy(fontSize = 14.sp), color = PicoTheme.colorScheme.labelSecondary, maxLines = 1, modifier = Modifier.probe("keys"), onTextLayout = fits("top/keys"))
+            Text(text = rs(if (state.prefs.leftHanded) R.string.keys_left else R.string.keys_right), style = TdType.label.copy(fontSize = 14.sp), color = PicoTheme.colorScheme.labelPrimary, maxLines = 1, modifier = Modifier.probe("keys"), onTextLayout = fits("top/keys"))
         }
         Button(
             onClick = { onEvent(Ui.SetPrefs("mute") { it.copy(muted = !it.muted) }) },
             modifier = Modifier.height(48.dp).probe("mute"),
             size = ButtonDefaults.Regular.copy(height = 48.dp),
             shape = CircleShape,
+            colors = ButtonDefaults.buttonColors(containerColor = TdColors.KeyFill, contentColor = TdColors.TagInk),
         ) {
-            Icon(painter = painterResource(if (state.prefs.muted) R.drawable.ic_volume_off else R.drawable.ic_volume_up), contentDescription = null, modifier = Modifier.size(22.dp), tint = PicoTheme.colorScheme.labelPrimary)
+            Icon(painter = painterResource(if (state.prefs.muted) R.drawable.ic_volume_off else R.drawable.ic_volume_up), contentDescription = null, modifier = Modifier.size(22.dp), tint = TdColors.TagInk)
             Spacer(Modifier.width(6.dp))
-            Text(text = rs(if (state.prefs.muted) R.string.unmute else R.string.mute), style = TdType.button, color = PicoTheme.colorScheme.labelPrimary, maxLines = 1, onTextLayout = fits("top/mute"))
+            Text(text = rs(if (state.prefs.muted) R.string.unmute else R.string.mute), style = TdType.button, color = TdColors.TagInk, maxLines = 1, onTextLayout = fits("top/mute"))
         }
     }
 }
@@ -291,7 +292,7 @@ private fun ControllerBanner(state: TdUiState) {
 
 /** Pages with the system Toolbar keep its strip free (native-window-move §3.6). */
 @Composable
-private fun ColumnScope.ToolbarClear() = Spacer(Modifier.height(PanelSizes.TOOLBAR_CLEAR.dp))
+private fun ColumnScope.ToolbarClear() = Spacer(Modifier.height(PanelSizes.TOOLBAR_CLEAR.dp).probe("toolbar_strip"))
 
 // ================================================================================================= pages
 
@@ -334,7 +335,7 @@ private fun ColumnScope.RoundPages(state: TdUiState, onEvent: (Ui) -> Unit) {
 
 @Composable
 private fun ColumnScope.Starting(state: TdUiState) {
-    Column(Modifier.fillMaxWidth().weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+    Column(Modifier.fillMaxWidth().weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceEvenly) {
         CircularProgressIndicator(modifier = Modifier.size(56.dp).probe("spinner"))
         Spacer(Modifier.height(16.dp))
         Title(rs(R.string.starting), "starting")
@@ -346,13 +347,16 @@ private fun ColumnScope.Starting(state: TdUiState) {
 private fun ColumnScope.Coach(state: TdUiState, onEvent: (Ui) -> Unit) {
     val lines = listOf(R.string.coach_1, R.string.coach_2, R.string.coach_3)
     val i = state.coachStep.coerceIn(0, 2)
-    Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.Center) {
+    Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.SpaceEvenly) {
+        // what this tip is about, big enough to read across the room (D23: an icon with words)
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(120.dp).clip(CircleShape).background(TdColors.Interaction).probe("coach_icon"), contentAlignment = Alignment.Center) {
+                Icon(painter = painterResource(listOf(R.drawable.ic_pan_tool, R.drawable.ic_controller, R.drawable.ic_replay)[i]), contentDescription = null, modifier = Modifier.size(64.dp), tint = TdColors.OnFill)
+            }
+        }
         Small(rs(R.string.coach_step, i + 1), "coach_step")
-        Spacer(Modifier.height(8.dp))
-        Title(rs(lines[i]), "coach_line")
-        Spacer(Modifier.height(12.dp))
+        Text(text = rs(lines[i]), style = TdType.title.copy(fontSize = 26.sp, lineHeight = 34.sp), color = PicoTheme.colorScheme.labelPrimary, maxLines = 3, modifier = Modifier.probe("coach_line"), onTextLayout = fits("title/coach_line"))
         Body(rs(if (state.prefs.leftHanded) R.string.coach_keys_left else R.string.coach_keys_right), "coach_keys")
-        Spacer(Modifier.height(24.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Key(rs(R.string.coach_skip), "coach_skip", modifier = Modifier.weight(1f)) { onEvent(Ui.CoachSkip) }
             Key(rs(if (i >= 2) R.string.coach_done else R.string.coach_next), "coach_next", R.drawable.ic_chevron_right, KeyKind.PRIMARY, modifier = Modifier.weight(1f)) { onEvent(Ui.CoachNext) }
@@ -362,7 +366,7 @@ private fun ColumnScope.Coach(state: TdUiState, onEvent: (Ui) -> Unit) {
 
 @Composable
 private fun ColumnScope.Home(state: TdUiState, onEvent: (Ui) -> Unit) {
-    Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)) {
+    Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.SpaceEvenly) {
         ControllerBanner(state)
         Title(rs(R.string.home_title), "home_title")
         for (l in listOf(LevelId.REACH, LevelId.PICK, LevelId.STACK)) LevelCard(state, l) { onEvent(Ui.OpenLevel(l)) }
@@ -378,6 +382,7 @@ private fun LevelCard(state: TdUiState, l: LevelId, onClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth().height(104.dp).probe("card_${l.name}"),
         size = ButtonDefaults.Regular.copy(height = 104.dp),
         shape = RoundedCornerShape(24.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = TdColors.KeyFill, contentColor = TdColors.TagInk),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(56.dp).clip(CircleShape).background(TdColors.Interaction), contentAlignment = Alignment.Center) {
@@ -385,13 +390,13 @@ private fun LevelCard(state: TdUiState, l: LevelId, onClick: () -> Unit) {
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(text = rs(levelName(l)), style = TdType.titleSmall, color = PicoTheme.colorScheme.labelPrimary, maxLines = 1, onTextLayout = fits("card/${l.name}_name"))
-                Text(text = rs(levelTag(l)), style = TdType.label, color = PicoTheme.colorScheme.labelPrimary, maxLines = 2, onTextLayout = fits("card/${l.name}_tag"))
+                Text(text = rs(levelName(l)), style = TdType.titleSmall, color = TdColors.TagInk, maxLines = 1, onTextLayout = fits("card/${l.name}_name"))
+                Text(text = rs(levelTag(l)), style = TdType.label, color = TdColors.TagInk, maxLines = 2, onTextLayout = fits("card/${l.name}_tag"))
             }
             Spacer(Modifier.width(8.dp))
             Column(horizontalAlignment = Alignment.End) {
-                Text(text = if (best == null) rs(R.string.best_none) else stars(best.stars), style = TdType.label, color = PicoTheme.colorScheme.labelPrimary, maxLines = 1, onTextLayout = fits("card/${l.name}_stars"))
-                if (best != null) Text(text = rs(R.string.best_score, best.score), style = TdType.label, color = PicoTheme.colorScheme.labelPrimary, maxLines = 1, onTextLayout = fits("card/${l.name}_best"))
+                Text(text = if (best == null) rs(R.string.best_none) else stars(best.stars), style = TdType.label, color = TdColors.TagInk, maxLines = 1, onTextLayout = fits("card/${l.name}_stars"))
+                if (best != null) Text(text = rs(R.string.best_score, best.score), style = TdType.label, color = TdColors.TagInk, maxLines = 1, onTextLayout = fits("card/${l.name}_best"))
             }
         }
     }
@@ -403,7 +408,7 @@ private fun ColumnScope.Intro(state: TdUiState, onEvent: (Ui) -> Unit) {
     val su = state.setup
     val free = su.level == LevelId.FREE
     fun setup(why: String, f: (io.embodit.teleopdojo.ui.RoundSetup) -> io.embodit.teleopdojo.ui.RoundSetup) = onEvent(Ui.Setup(why, f))
-    Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)) {
+    Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.SpaceEvenly) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Key(rs(R.string.back), "intro_back", R.drawable.ic_chevron_left) { onEvent(if (free) Ui.ToHome else Ui.Back) }
             Spacer(Modifier.width(12.dp))
@@ -435,7 +440,7 @@ private fun ColumnScope.Intro(state: TdUiState, onEvent: (Ui) -> Unit) {
 
 @Composable
 private fun ColumnScope.Countdown(state: TdUiState) {
-    Column(Modifier.fillMaxWidth().weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+    Column(Modifier.fillMaxWidth().weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceEvenly) {
         Text(text = rs(R.string.countdown_go, state.countdown), style = TdType.title.copy(fontSize = 96.sp, lineHeight = 104.sp), color = PicoTheme.colorScheme.labelPrimary, modifier = Modifier.probe("countdown"), onTextLayout = fits("live/countdown"))
         Body(rs(R.string.countdown_hint), "countdown_hint", align = TextAlign.Center)
     }
@@ -446,7 +451,7 @@ private fun ColumnScope.Countdown(state: TdUiState) {
 @Composable
 private fun ColumnScope.Live(state: TdUiState) {
     val l = state.live
-    Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically)) {
+    Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.SpaceEvenly) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Small(if (state.fromFree) rs(R.string.free_round, state.freeRound) else rs(levelName(state.setup.level)) + " · " + rs(diffName(state.setup.difficulty)), "live_title", maxLines = 1)
@@ -480,7 +485,7 @@ internal fun RowScope.LiveToolbar(state: TdUiState, onEvent: (Ui) -> Unit) {
 
 @Composable
 private fun ColumnScope.Paused(state: TdUiState, onEvent: (Ui) -> Unit) {
-    Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically)) {
+    Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.SpaceEvenly) {
         val ask = state.roundConfirm
         if (ask != null) {
             // D44: restarting / leaving a running round loses it; the question opens right here
@@ -491,6 +496,11 @@ private fun ColumnScope.Paused(state: TdUiState, onEvent: (Ui) -> Unit) {
                 Key(rs(if (ask == "restart") R.string.restart else R.string.to_home), "confirm_yes", if (ask == "restart") R.drawable.ic_restart_alt else R.drawable.ic_home, KeyKind.DANGER, 56.dp, modifier = Modifier.weight(1f)) { onEvent(Ui.ConfirmYes) }
             }
             return@Column
+        }
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(120.dp).clip(CircleShape).background(TdColors.Paused).probe("paused_icon"), contentAlignment = Alignment.Center) {
+                Icon(painter = painterResource(R.drawable.ic_pause), contentDescription = null, modifier = Modifier.size(64.dp), tint = TdColors.OnFill)
+            }
         }
         Title(rs(R.string.paused_title), "paused_title")
         Body(rs(R.string.paused_body), "paused_body")
@@ -507,9 +517,9 @@ private fun ColumnScope.Paused(state: TdUiState, onEvent: (Ui) -> Unit) {
 private fun ColumnScope.Result(state: TdUiState, onEvent: (Ui) -> Unit) {
     val r = state.result ?: return
     val m = r.metrics
-    Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)) {
+    Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.SpaceEvenly) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text = stars(r.stars), style = TdType.title.copy(fontSize = 32.sp, lineHeight = 38.sp), color = TdColors.Tether, modifier = Modifier.probe("res_stars"), onTextLayout = fits("res/stars"))
+            Text(text = stars(r.stars), style = TdType.title.copy(fontSize = 32.sp, lineHeight = 38.sp), color = TdColors.StarInk, modifier = Modifier.probe("res_stars"), onTextLayout = fits("res/stars"))
             Spacer(Modifier.width(12.dp))
             Text(text = rs(R.string.score, r.score), style = TdType.title.copy(fontSize = 36.sp, lineHeight = 42.sp), color = PicoTheme.colorScheme.labelPrimary, modifier = Modifier.weight(1f).probe("res_score"), onTextLayout = fits("res/score"))
             if (r.assisted) Pill(rs(R.string.assisted), TdColors.TagBg, TdColors.TagInk, null, "res_assisted")
@@ -527,7 +537,7 @@ private fun ColumnScope.Result(state: TdUiState, onEvent: (Ui) -> Unit) {
         for (pair in rows.chunked(2)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 for ((k, v) in pair) {
-                    Row(Modifier.weight(1f).height(30.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.weight(1f).height(30.dp).probe("res_metric_$k"), verticalAlignment = Alignment.CenterVertically) {
                         Text(text = k, style = TdType.label, color = PicoTheme.colorScheme.labelPrimary, maxLines = 1, modifier = Modifier.weight(1f), onTextLayout = fits("res/k_$k"))
                         Text(text = v, style = TdType.titleSmall, color = PicoTheme.colorScheme.labelPrimary, maxLines = 1, onTextLayout = fits("res/v_$k"))
                     }
@@ -551,7 +561,7 @@ private fun ColumnScope.Result(state: TdUiState, onEvent: (Ui) -> Unit) {
 
 @Composable
 private fun ColumnScope.FreeHome(state: TdUiState, onEvent: (Ui) -> Unit) {
-    Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically)) {
+    Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.SpaceEvenly) {
         ControllerBanner(state)
         Title(rs(R.string.free_round, state.freeRound), "free_round")
         Body(rs(R.string.lv_free_tag), "free_tag")
@@ -564,7 +574,7 @@ private fun ColumnScope.FreeHome(state: TdUiState, onEvent: (Ui) -> Unit) {
 /** S02 in the window: instructions, 移到标记处 (after the trigger set the marker) and 取消. */
 @Composable
 private fun ColumnScope.Placing(state: TdUiState, onEvent: (Ui) -> Unit) {
-    Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically)) {
+    Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.SpaceEvenly) {
         Title(rs(R.string.place_title), "place_title")
         Body(rs(R.string.place_hint), "place_hint")
         Small(rs(R.string.place_hint_2), "place_hint_2")
@@ -589,10 +599,10 @@ internal fun CardPage(state: TdUiState, onEvent: (Ui) -> Unit) {
             Scoring.Title.GETTING_IT -> R.string.card_title_getting
             Scoring.Title.NEW -> R.string.card_title_new
         }
-        Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)) {
+        Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.SpaceEvenly) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Title(rs(title), "card_title", Modifier.weight(1f))
-                Text(text = stars(avg.roundToInt()), style = TdType.title, color = TdColors.Tether, onTextLayout = fits("card/avg"))
+                Text(text = stars(avg.roundToInt()), style = TdType.title, color = TdColors.StarInk, onTextLayout = fits("card/avg"))
             }
             Small(rs(R.string.card_rows), "card_rows_title")
             for ((l, b) in bests) {
@@ -612,9 +622,9 @@ internal fun CardPage(state: TdUiState, onEvent: (Ui) -> Unit) {
             }
             Small(rs(R.string.card_compare), "card_compare_title")
             Row(Modifier.fillMaxWidth().height(28.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(text = rs(R.string.card_col_map), style = TdType.label, color = PicoTheme.colorScheme.labelSecondary, modifier = Modifier.weight(1f), onTextLayout = fits("card/col_map"))
-                Text(text = rs(R.string.card_col_best), style = TdType.label, color = PicoTheme.colorScheme.labelSecondary, modifier = Modifier.width(110.dp), onTextLayout = fits("card/col_best"))
-                Text(text = rs(R.string.card_col_avg), style = TdType.label, color = PicoTheme.colorScheme.labelSecondary, modifier = Modifier.width(130.dp), onTextLayout = fits("card/col_avg"))
+                Text(text = rs(R.string.card_col_map), style = TdType.label, color = PicoTheme.colorScheme.labelPrimary, modifier = Modifier.weight(1f), onTextLayout = fits("card/col_map"))
+                Text(text = rs(R.string.card_col_best), style = TdType.label, color = PicoTheme.colorScheme.labelPrimary, modifier = Modifier.width(110.dp), onTextLayout = fits("card/col_best"))
+                Text(text = rs(R.string.card_col_avg), style = TdType.label, color = PicoTheme.colorScheme.labelPrimary, modifier = Modifier.width(130.dp), onTextLayout = fits("card/col_avg"))
             }
             for (k in listOf("clutch0.5", "clutch1.0", "clutch1.5", "follow")) {
                 val s = state.mapStats[k]
@@ -642,12 +652,11 @@ internal fun SettingsPage(state: TdUiState, onEvent: (Ui) -> Unit) {
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) { Title(rs(R.string.set_title), "set_title") }
         if (state.aboutOpen) {
-            Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.SpaceEvenly) {
                 Title(rs(R.string.about), "about_title")
                 Body(rs(R.string.about_1), "about_1", maxLines = 4)
                 Body(rs(R.string.about_2), "about_2", maxLines = 4)
                 Body(rs(R.string.about_3), "about_3", maxLines = 2)
-                Spacer(Modifier.weight(1f))
                 Key(rs(R.string.about_close), "about_close", R.drawable.ic_chevron_left, modifier = Modifier.fillMaxWidth()) { onEvent(Ui.About) }
             }
             return@Column
@@ -723,11 +732,11 @@ private fun IconKey(icon: Int, description: String, name: String, enabled: Boole
     IconButton(
         onClick = onClick,
         modifier = Modifier.probe(name),
-        colors = IconButtonDefaults.iconButtonColors(containerColor = PicoTheme.colorScheme.fillTertiary, contentColor = PicoTheme.colorScheme.labelPrimary),
+        colors = IconButtonDefaults.iconButtonColors(containerColor = TdColors.KeyFill, contentColor = TdColors.TagInk),
         size = IconButtonDefaults.iconButtonSize(width = 52.dp, height = 48.dp),
         enabled = enabled,
     ) {
-        Icon(painter = painterResource(icon), contentDescription = description, modifier = Modifier.size(22.dp), tint = PicoTheme.colorScheme.labelPrimary)
+        Icon(painter = painterResource(icon), contentDescription = description, modifier = Modifier.size(22.dp), tint = TdColors.TagInk)
     }
 }
 

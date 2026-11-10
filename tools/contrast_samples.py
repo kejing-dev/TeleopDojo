@@ -1,0 +1,26 @@
+"""Teleop Dojo contrast samples (pair, where, shot, box in 2560-px screenshot pixels, threshold) for tools/contrast.py."""
+SAMPLES = [
+    ("labelPrimary / window glass", "metric names, row labels (Done, Language …)", "result", (883, 1094, 935, 1120), 4.5),
+    ("labelPrimary / window glass", "settings row label Language", "settings", (882, 930, 995, 954), 4.5),
+    ("labelPrimary / window glass", "top row Gripper 85 mm", "result", (1036, 851, 1186, 875), 4.5),
+    ("labelPrimary (small) / window glass", "top row key hint B start/end · A pause", "result", (1036, 878, 1245, 904), 4.5),
+    ("labelPrimary (small) / window glass", "result footnote (14 sp)", "result", (883, 1413, 1643, 1466), 4.5),
+    ("labelPrimary (small) / window glass", "settings note Look at an empty spot first", "settings", (882, 1553, 1151, 1574), 4.5),
+    ("labelPrimary (small) / window glass", "scorecard subtitle Best of each drill", "card", (882, 1015, 1049, 1039), 4.5),
+    ("star ink #6B4400 / window glass", "result stars (32 sp, large)", "result", (885, 987, 1014, 1034), 3.0),
+    ("star ink #6B4400 / window glass", "scorecard title stars (large)", "card", (1650, 962, 1730, 991), 3.0),
+    ("labelPrimary / fillTertiary row", "scorecard drill row name", "card", (901, 1086, 1041, 1110), 4.5),
+    ("labelPrimary / segment track", "unselected option Stand", "settings", (1375, 1090, 1434, 1114), 4.5),
+    ("labelPrimary / segment track", "unselected option Workshop", "settings", (1589, 1251, 1688, 1273), 4.5),
+    ("labelPrimary / window glass", "table height value 75 cm", "settings", (1573, 1092, 1634, 1113), 4.5),
+    ("tag ink / key fill (as drawn)", "normal key Next drill", "result", (1491, 1524, 1603, 1561), 4.5),
+    ("tag ink / key fill (as drawn)", "normal key Home", "result", (1508, 1636, 1584, 1670), 4.5),
+    ("tag ink / key fill (as drawn)", "normal key Move workcell", "settings", (1030, 1411, 1203, 1438), 4.5),
+    ("tag ink / key fill (as drawn)", "Mute key", "card", (1643, 861, 1709, 894), 4.5),
+    ("ink / interaction (as drawn)", "primary key Again", "result", (1080, 1528, 1150, 1557), 4.5),
+    ("ink / interaction (as drawn)", "selected option English", "settings", (1617, 931, 1689, 954), 4.5),
+    ("ink / danger fill (as drawn)", "Quit app", "settings", (1279, 1672, 1383, 1699), 4.5),
+    ("ink / released grey (as drawn)", "status pill Let go", "result", (941, 864, 1007, 888), 4.5),
+    ("tag ink / tag slate (as drawn)", "control chip Assist mode", "result", (1590, 996, 1714, 1023), 4.5),
+]
+EXEMPT = []

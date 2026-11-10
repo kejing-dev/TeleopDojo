@@ -147,11 +147,39 @@ object DebugCommands {
                 ev(Ui.QuitAsk)
                 ev(Ui.QuitYes)
             }
+            "head" -> {
+                sc?.debugHeadShift = Vec3(a.getOrNull(0)?.toFloatOrNull() ?: 0f, a.getOrNull(1)?.toFloatOrNull() ?: 0f, a.getOrNull(2)?.toFloatOrNull() ?: 0f)
+                sc?.debugHeadPitchDeg = a.getOrNull(3)?.toFloatOrNull() ?: 0f
+            }
+            "bounds" -> bounds(a.getOrNull(0) ?: "")
+            "about" -> ev(Ui.About)
+            "table" -> ev(Ui.SetPrefs("table") { it.copy(standing = a.getOrNull(0) == "stand", tableAdjustCm = 0) })
             "where" -> TdLog.i("WHERE ${sc?.where()}")
             "fit" -> if (a.getOrNull(0) == "reset") TextFit.reset() else TdLog.i(TextFit.summary())
             else -> return log("unknown $cmd")
         }
         log("$cmd $a done")
+    }
+
+    /**
+     * `bounds [label]`: the whitespace of the window page as shown (factory build.md 空白的量法): the content block is the
+     * first to the last visible control; blank = (block top to window top + block bottom to window bottom) / window height;
+     * the largest internal gap between merged control rows. One `BOUNDS` line per call.
+     */
+    private fun bounds(label: String) {
+        val size = Probe.sizeOf("window") ?: return log("bounds: no window controls")
+        val h = size.second.toFloat()
+        val rows = Probe.controlsOf("window").values.filter { it.h > 0f && it.cy - it.h / 2f >= -1f && it.cy + it.h / 2f <= h + 1f }.map { (it.cy - it.h / 2f) to (it.cy + it.h / 2f) }.sortedBy { it.first }
+        if (rows.isEmpty()) return log("bounds: empty")
+        var gap = 0f
+        var end = rows.first().second
+        for ((t, b) in rows.drop(1)) {
+            if (t > end) gap = maxOf(gap, t - end)
+            end = maxOf(end, b)
+        }
+        val top = rows.first().first
+        val blank = (top + (h - end)) / h * 100f
+        TdLog.i(String.format(java.util.Locale.US, "BOUNDS label=%s state=%s lang=%s h=%.0f top=%.0f bottom=%.0f blank=%.1f%% maxGap=%.1f%% controls=%d", label, state().designState, state().prefs.lang, h, top, end, blank, gap / h * 100f, rows.size))
     }
 
     /** `goto Sxx`: walks to a design state with the keys / inputs a user would use. */
