@@ -48,4 +48,5 @@ object TdColors {
     val FrameWhite = Color(0xFFFFFFFF) // design-style: fixed-figma-color outlines / dashes
     val DomeWall = Color(0xFF8A8F95) // design-style: fixed-figma-color workshop walls (baked, unlit)
     val DomeFloor = Color(0xFF9FA3A6) // design-style: fixed-figma-color concrete floor
+    val DomeCeiling = Color(0xFF4A4E54) // design-style: fixed-figma-color workshop ceiling (fallback when the baked texture is missing)
 }

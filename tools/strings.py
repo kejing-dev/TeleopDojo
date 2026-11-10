@@ -144,6 +144,10 @@ S = [
     ("see_card", "看成绩卡", "Scorecard"),
     ("cmp_faster", "%1$s 比 %2$s 快 %3$d 秒", "%1$s was %3$d s faster than %2$s"),
     ("cmp_slower", "%1$s 比 %2$s 慢 %3$d 秒", "%1$s was %3$d s slower than %2$s"),
+    ("cmp_same_time", "%1$s 和 %2$s 用时差不多", "%1$s and %2$s took about the same time"),
+    ("cmp_more", "%1$s 比 %2$s 完成得多（%3$s 对 %4$s）", "%1$s finished more targets than %2$s (%3$s vs %4$s)"),
+    ("cmp_fewer", "%1$s 比 %2$s 完成得少（%3$s 对 %4$s）", "%1$s finished fewer targets than %2$s (%3$s vs %4$s)"),
+    ("cmp_none_done", "%1$s 和 %2$s 都还没完成目标", "Neither %1$s nor %2$s finished a target yet"),
     ("cmp_table_less", "，撞桌少 %1$d 次", ", %1$d fewer table hits"),
     ("cmp_table_more", "，撞桌多 %1$d 次", ", %1$d more table hits"),
     ("map_clutch_x", "离合 %1$s×", "Clutch %1$s×"),
@@ -207,6 +211,9 @@ S = [
     ("open_panel", "打开面板", "Open panel"),
     ("look_level", "平视前方", "Look straight ahead"),
     ("look_level_2", "面板就出来", "and the panel opens"),
+    ("look_left", "往左看一点", "Look a bit left"),
+    ("look_right", "往右看一点", "Look a bit right"),
+    ("look_turn_2", "面板开在机械臂旁边", "the panel opens beside the arm"),
 ]
 
 

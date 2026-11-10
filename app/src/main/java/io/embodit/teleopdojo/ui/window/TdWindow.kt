@@ -3,6 +3,7 @@ package io.embodit.teleopdojo.ui.window
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import kotlin.math.abs
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -73,11 +74,26 @@ object WindowCtl {
      * frame ([stepGate]) and shows "平视前方" while [levelHint] is on.
      */
     private val gate = LevelGate()
+    private var loggedTurn = 0f
     private var lastStepMs = 0L
 
     /** The Stage's "平视前方 / Look straight ahead" hint: an open waits and the head is not level. */
     var levelHint by mutableStateOf(false)
         private set
+
+    /**
+     * profile 48: the Stage's "往左看一点 / 往右看一点" hint, +1 left, -1 right, 0 off: an open waits, the head is level,
+     * but the window would land on the workcell ([io.embodit.teleopdojo.domain.WindowSpot]).
+     */
+    var turnHint by mutableIntStateOf(0)
+        private set
+
+    /** Something waits for the gate (the Stage then works out [stepGate]'s turn). */
+    val waiting: Boolean
+        get() = gate.waiting
+
+    /** The Stage's check that the spot the window was opened at is still clear (restore after −, profile 48). */
+    var spotClear: () -> Boolean = { true }
 
     val open: Boolean
         get() = panelState != "never" && panelState != "ON_DESTROY" && panelState != "ON_STOP"
@@ -100,21 +116,32 @@ object WindowCtl {
         main.postDelayed(watchdog, WATCHDOG_MS)
     }
 
-    /** One Stage frame: [pitchDeg] = head pitch (+ up), null while the head pose is not valid yet. */
-    fun stepGate(now: Long, pitchDeg: Float?) {
+    /**
+     * One Stage frame: [pitchDeg] = head pitch (+ up), null while the head pose is not valid yet; [turnDeg] = how far
+     * the head still has to turn for a clear window spot (+ left, 0 = clear, profile 48).
+     */
+    fun stepGate(now: Long, pitchDeg: Float?, turnDeg: Float = 0f) {
         lastStepMs = now
         if (!gate.waiting) {
             if (levelHint) levelHint = false
+            if (turnHint != 0) turnHint = 0
             return
+        }
+        val turn = if (gate.turnWanted(pitchDeg, turnDeg)) (if (turnDeg > 0f) 1 else -1) else 0
+        if (turn != turnHint || (turn != 0 && abs(turnDeg - loggedTurn) >= 5f)) {
+            turnHint = turn
+            loggedTurn = turnDeg
+            TdLog.i(String.format(java.util.Locale.US, "TURN hint=%d need=%.0f pitch=%.1f waited=%d ms", turn, turnDeg, pitchDeg ?: Float.NaN, gate.waitedMs(now)))
         }
         val hint = gate.hintWanted(pitchDeg)
         if (hint != levelHint) {
             levelHint = hint
             TdLog.i(String.format(java.util.Locale.US, "LEVEL hint=%s pitch=%.1f waited=%d ms", hint, pitchDeg ?: Float.NaN, gate.waitedMs(now)))
         }
-        val why = gate.step(now, pitchDeg) ?: return
+        val why = gate.step(now, pitchDeg, turnDeg) ?: return
         levelHint = false
-        TdLog.i(String.format(java.util.Locale.US, "LEVEL ok pitch=%.1f -> open", pitchDeg ?: Float.NaN))
+        turnHint = 0
+        TdLog.i(String.format(java.util.Locale.US, "LEVEL ok pitch=%.1f spot clear -> open", pitchDeg ?: Float.NaN))
         openNow(why)
     }
 
@@ -132,6 +159,7 @@ object WindowCtl {
                     val why = gate.pending ?: return
                     gate.cancel()
                     levelHint = false
+                    turnHint = 0
                     openNow("$why/noframes")
                 } else main.postDelayed(this, WATCHDOG_MS)
             }
@@ -144,11 +172,17 @@ object WindowCtl {
         runCatching { nav.openWindowContainer(PANEL_ID, PANEL_TAG) }.onFailure { TdLog.w("WINDOW open failed: $it") }
     }
 
-    /** The chip: a minimised window is restored where it was, a closed one opens in front of you. */
+    /**
+     * The chip: a minimised window is restored where it was while that spot is still clear of the workcell; otherwise
+     * (closed, or the table moved in front of it) it opens through the gate like every other open (profile 48).
+     */
     fun reopen(why: String) {
-        if (panelState == "ON_STOP" && navigator?.let { runCatching { it.restoreWindowContainer(PANEL_ID, PANEL_TAG) }.getOrDefault(false) } == true) {
-            TdLog.i("WINDOW restore why=$why")
-            return
+        if (panelState == "ON_STOP") {
+            if (!spotClear()) return recall("$why/blocked")
+            if (navigator?.let { runCatching { it.restoreWindowContainer(PANEL_ID, PANEL_TAG) }.getOrDefault(false) } == true) {
+                TdLog.i("WINDOW restore why=$why")
+                return
+            }
         }
         openWindow(why)
     }
@@ -180,6 +214,7 @@ object WindowCtl {
         recallPending = false
         gate.cancel()
         levelHint = false
+        turnHint = 0
         runCatching { navigator?.closeWindowContainer(PANEL_ID, PANEL_TAG) }
     }
 

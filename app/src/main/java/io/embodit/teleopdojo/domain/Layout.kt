@@ -128,6 +128,107 @@ object Placement {
         val pitchDeg = Math.toDegrees(head.pitch.toDouble()).toFloat().coerceIn(-40f, 40f)
         return placeUpright(head, 0f, 0.75f, -pitchDeg)
     }
+
+    /** "往左 / 往右看一点" while the window waits for a clear spot (profile 48): 20° to the side to turn to, 0.75 m, 5° down. */
+    fun turnHint(head: HeadPose, side: Int): Upright = placeUpright(head, 20f * side, 0.75f, 5f)
+}
+
+/**
+ * profile 48 (QA #2 q2-1): the ONE place that says where the main window lands and whether that spot keeps the
+ * workcell clear. The system opens the window square to the line of sight [Placement.WINDOW_DIST_M] ahead and SDK 6.1
+ * cannot move it, so the only lever is when to open: every open (start, the "打开面板" chip, [叫回面板], restore
+ * after −) waits in [LevelGate] until [turnDeg] says 0, i.e. the window frame, with the TabBar over it and the
+ * Toolbar / system strip under it, is at least [MIN_GAP_DEG] from every point that matters: the table, the base
+ * column, the gripper's whole workspace over the practice region (targets on the top, the gripper up to
+ * [Workcell.MAX_UP]), the tip tag, and the arm as it stands now. Page switches stay inside the same window.
+ */
+object WindowSpot {
+    const val MIN_GAP_DEG = 10f
+
+    /** The TabBar capsule over the window and the Toolbar + system strip (dot, ×, −) under it, in window dp. */
+    const val OVER_DP = 88f
+    const val UNDER_DP = 72f
+
+    /** The tip tag over the far side of the table (right hand, table-local). */
+    val TIP_LOCAL = Vec3(0.30f, 0.62f, -0.30f)
+
+    /** The post with "打开面板" at the left near corner (right hand, table-local) and its height; the chip sits on top. */
+    val CHIP_CORNER = Vec3(-0.44f, 0f, 0.34f)
+    const val CHIP_POST_H = 0.35f
+
+    fun chip(cell: Workcell): Vec3 = cell.toStage(cell.hand(CHIP_CORNER) + Vec3(0f, CHIP_POST_H + 0.07f, 0f))
+
+    /** Window size in dp (PanelSizes) and metres per dp (the window reports it; 0.8 mm until it does). */
+    data class Size(val wDp: Float, val hDp: Float, val dpM: Float) {
+        val halfW: Float get() = wDp * dpM / 2f
+        val top: Float get() = (hDp / 2f + OVER_DP) * dpM
+        val bottom: Float get() = -(hDp / 2f + UNDER_DP) * dpM
+    }
+
+    /** Points of the workcell the window must keep clear of (Stage); [live] adds the arm as it stands now. */
+    fun keepClear(cell: Workcell, live: List<Vec3> = emptyList()): List<Vec3> {
+        val pts = ArrayList<Vec3>(64 + live.size)
+        for (x in floatArrayOf(-0.5f, -0.25f, 0f, 0.25f, 0.5f)) for (z in floatArrayOf(-0.4f, 0f, 0.4f)) pts += cell.toStage(Vec3(x, 0f, z))
+        for (y in floatArrayOf(0f, 0.3f, 0.6f, 0.9f)) pts += cell.toStage(Workcell.BASE_LOCAL + Vec3(0f, y, 0f))
+        val xs = floatArrayOf(Workcell.REGION_X0, (Workcell.REGION_X0 + Workcell.REGION_X1) / 2f, Workcell.REGION_X1)
+        val zs = floatArrayOf(Workcell.REGION_Z0, (Workcell.REGION_Z0 + Workcell.REGION_Z1) / 2f, Workcell.REGION_Z1)
+        val ys = floatArrayOf(0f, Workcell.MAX_UP / 2f, Workcell.MAX_UP)
+        for (x in xs) for (z in zs) for (y in ys) pts += cell.toStage(cell.hand(Vec3(x, y, z)))
+        pts += cell.toStage(cell.hand(TIP_LOCAL))
+        pts += live
+        return pts
+    }
+
+    /** Smallest angle (degrees) from the eye between any [keep] point and the window opened looking along [yaw]. */
+    fun gapDeg(eye: Vec3, yaw: Float, keep: List<Vec3>, size: Size): Float {
+        val f = Yaw.dir(yaw)
+        val r = Vec3(cos(yaw), 0f, -sin(yaw))
+        val d = Placement.WINDOW_DIST_M
+        var worst = 180f
+        for (p in keep) {
+            val v = p - eye
+            val len = v.length
+            if (len < 1e-4f) continue
+            val ahead = v.dot(f)
+            val x = v.dot(r)
+            // the closest point of the frame: the projection on the window plane, clamped into the frame
+            val cx: Float
+            val cy: Float
+            if (ahead > 1e-3f) {
+                cx = (x * d / ahead).coerceIn(-size.halfW, size.halfW)
+                cy = (v.y * d / ahead).coerceIn(size.bottom, size.top)
+            } else {
+                cx = if (x >= 0f) size.halfW else -size.halfW
+                cy = v.y.coerceIn(size.bottom, size.top)
+            }
+            val q = r * cx + Vec3(0f, cy, 0f) + f * d
+            val cosA = (v.dot(q) / (len * q.length)).coerceIn(-1f, 1f)
+            val a = Math.toDegrees(kotlin.math.acos(cosA).toDouble()).toFloat()
+            if (a < worst) worst = a
+        }
+        return worst
+    }
+
+    /**
+     * How far to turn (degrees, + = left, the [Yaw] convention) before the window may open; 0 = clear now. The shorter
+     * way round, away from the workcell on a tie. 0 also when nothing clears (no workcell points), so it never blocks.
+     */
+    fun turnDeg(head: HeadPose, keep: List<Vec3>, size: Size): Float {
+        if (keep.isEmpty()) return 0f
+        val eye = head.position
+        val yaw = head.yaw(0f)
+        if (gapDeg(eye, yaw, keep, size) >= MIN_GAP_DEG) return 0f
+        // away from the workcell first: the side its centre is not on
+        var sx = 0f
+        val r = Vec3(cos(yaw), 0f, -sin(yaw))
+        for (p in keep) sx += (p - eye).dot(r)
+        val away = if (sx > 0f) 1f else -1f
+        for (deg in 1..180) for (s in floatArrayOf(away, -away)) {
+            val a = Yaw.wrap(yaw + Math.toRadians((s * deg).toDouble()).toFloat())
+            if (gapDeg(eye, a, keep, size) >= MIN_GAP_DEG) return s * deg
+        }
+        return 0f
+    }
 }
 
 /** Panel facing helper: the yaw (Yaw convention) of a panel at [panel] whose face (+Z) turns to [viewer]. */

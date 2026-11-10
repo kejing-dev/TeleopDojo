@@ -144,6 +144,9 @@ internal class SceneMaterials(private val shared: SharedResources) {
 
     fun texture(bitmap: Bitmap): TextureResource = shared.keep(TextureResource.create(flipV(bitmap)))
 
+    /** A bitmap already run through [flipV] (decoded and flipped off the main thread). */
+    fun textureFlipped(bitmap: Bitmap): TextureResource = shared.keep(TextureResource.create(bitmap))
+
     companion object {
         private const val AMBIENT = 0.15f
 
@@ -163,6 +166,32 @@ internal class SceneMaterials(private val shared: SharedResources) {
         fun flipV(src: Bitmap): Bitmap {
             val m = android.graphics.Matrix().apply { preScale(1f, -1f) }
             return Bitmap.createBitmap(src, 0, 0, src.width, src.height, m, false)
+        }
+    }
+}
+
+/**
+ * The baked VR workshop (design rules.vrMode, QA #1 q1-1): assets/env/workshop_{wall,floor,ceiling}.jpg made by
+ * tools/workshop/gen_workshop.py, lighting baked in, drawn unlit. A part that fails to load falls back to a flat colour.
+ */
+internal class WorkshopTextures(private val flipped: Map<String, Bitmap>) {
+    /** The part's bitmap, already flipped for the engine; null when it failed to load. */
+    fun bitmap(part: String): Bitmap? = flipped[part]
+
+    companion object {
+        val PARTS = listOf("wall", "floor", "ceiling")
+
+        fun decode(context: android.content.Context?): WorkshopTextures {
+            val out = HashMap<String, Bitmap>()
+            if (context == null) return WorkshopTextures(out)
+            val opts = android.graphics.BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.ARGB_8888 }
+            for (part in PARTS) {
+                runCatching {
+                    context.assets.open("env/workshop_$part.jpg").use { android.graphics.BitmapFactory.decodeStream(it, null, opts) }
+                }.onFailure { TdLog.w("WORKSHOP load $part failed: $it") }.getOrNull()?.let { out[part] = SceneMaterials.flipV(it) }
+            }
+            TdLog.i("WORKSHOP textures ${out.map { (k, v) -> "$k=${v.width}x${v.height}" }}")
+            return WorkshopTextures(out)
         }
     }
 }

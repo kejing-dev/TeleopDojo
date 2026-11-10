@@ -84,7 +84,8 @@ data class Live(
 )
 
 /** Best of a level / difficulty (persisted). */
-data class Best(val score: Int, val stars: Int, val timeS: Float, val steady: Int, val oops: Int, val demo: Int)
+/** [done] / [total]: targets of the round (comparison entries only; -1 = saved before v0.1.0 rework, not comparable). */
+data class Best(val score: Int, val stars: Int, val timeS: Float, val steady: Int, val oops: Int, val demo: Int, val done: Int = -1, val total: Int = -1)
 
 /** Mapping comparison (scorecard): key "clutch0.5" / "clutch1.0" / "clutch1.5" / "follow". */
 data class MapStat(val best: Int, val sumTime: Float, val n: Int) {

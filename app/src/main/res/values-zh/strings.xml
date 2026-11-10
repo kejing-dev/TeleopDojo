@@ -124,6 +124,10 @@
     <string name="see_card">看成绩卡</string>
     <string name="cmp_faster">%1$s 比 %2$s 快 %3$d 秒</string>
     <string name="cmp_slower">%1$s 比 %2$s 慢 %3$d 秒</string>
+    <string name="cmp_same_time">%1$s 和 %2$s 用时差不多</string>
+    <string name="cmp_more">%1$s 比 %2$s 完成得多（%3$s 对 %4$s）</string>
+    <string name="cmp_fewer">%1$s 比 %2$s 完成得少（%3$s 对 %4$s）</string>
+    <string name="cmp_none_done">%1$s 和 %2$s 都还没完成目标</string>
     <string name="cmp_table_less">，撞桌少 %1$d 次</string>
     <string name="cmp_table_more">，撞桌多 %1$d 次</string>
     <string name="map_clutch_x">离合 %1$s×</string>
@@ -183,4 +187,7 @@
     <string name="open_panel">打开面板</string>
     <string name="look_level">平视前方</string>
     <string name="look_level_2">面板就出来</string>
+    <string name="look_left">往左看一点</string>
+    <string name="look_right">往右看一点</string>
+    <string name="look_turn_2">面板开在机械臂旁边</string>
 </resources>

@@ -11,7 +11,10 @@ import kotlin.math.abs
  * none); that time counts from the first such frame, not from the ask (the Stage's frames start ~6 s after launch on
  * the headset, the ask comes at once).
  *
- * Pure: the caller feeds the time and the head pitch every frame; [step] says when to open.
+ * profile 48 (QA #2 q2-1): the same wait also holds the window until its spot keeps the workcell clear
+ * ([WindowSpot.turnDeg] == 0); meanwhile the Stage shows which way to turn.
+ *
+ * Pure: the caller feeds the time, the head pitch and the turn still needed every frame; [step] says when to open.
  */
 class LevelGate(
     val maxPitchDeg: Float = 10f,
@@ -46,10 +49,11 @@ class LevelGate(
     fun waitedMs(now: Long): Long = if (pending == null) 0L else now - askedMs
 
     /**
-     * One frame: [pitchDeg] is the head pitch (+ up), null while there is no valid head pose. Returns the reason to
-     * open the window now, or null to keep waiting.
+     * One frame: [pitchDeg] is the head pitch (+ up), null while there is no valid head pose; [turnDeg] how far the
+     * head still has to turn for a clear window spot (0 = clear). Returns the reason to open the window now, or null
+     * to keep waiting.
      */
-    fun step(now: Long, pitchDeg: Float?): String? {
+    fun step(now: Long, pitchDeg: Float?, turnDeg: Float = 0f): String? {
         val why = pending ?: return null
         if (pitchDeg == null || !pitchDeg.isFinite()) {
             levelSinceMs = -1L
@@ -59,7 +63,7 @@ class LevelGate(
             return "$why/nohead"
         }
         noHeadSinceMs = -1L
-        if (abs(pitchDeg) > maxPitchDeg) {
+        if (abs(pitchDeg) > maxPitchDeg || turnDeg != 0f) {
             levelSinceMs = -1L
             return null
         }
@@ -71,4 +75,7 @@ class LevelGate(
 
     /** The "平视前方" hint: something waits and the head is tracked but not level. */
     fun hintWanted(pitchDeg: Float?): Boolean = pending != null && pitchDeg != null && abs(pitchDeg) > maxPitchDeg
+
+    /** The "往左看一点 / 往右看一点" hint: something waits, the head is level, but the window spot is not clear. */
+    fun turnWanted(pitchDeg: Float?, turnDeg: Float): Boolean = pending != null && pitchDeg != null && abs(pitchDeg) <= maxPitchDeg && turnDeg != 0f
 }

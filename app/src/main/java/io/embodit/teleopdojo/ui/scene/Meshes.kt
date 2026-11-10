@@ -1,6 +1,7 @@
 package io.embodit.teleopdojo.ui.scene
 
 import com.pico.spatial.core.ecs.resource.MeshResource
+import com.pico.spatial.core.math.Vector2
 import io.embodit.teleopdojo.domain.Vec3
 import io.embodit.teleopdojo.domain.Workcell
 import kotlin.math.PI
@@ -58,24 +59,26 @@ internal object Meshes {
         return b.build(name)
     }
 
-    /** The workshop dome (S23): an inward-facing sphere cap of [r] metres standing on the floor. */
-    fun dome(name: String, r: Float, around: Int = 40, rings: Int = 16): MeshResource {
-        val b = MeshBuilder((around + 1) * (rings + 1))
-        for (jj in 0..rings) {
-            val phi = (PI / 2) * jj / rings
-            val y = (sin(phi) * r).toFloat()
-            val rr = (cos(phi) * r).toFloat()
-            for (ii in 0..around) {
-                val a = 2 * PI * ii / around
-                val p = Vec3(rr * cos(a).toFloat(), y, rr * sin(a).toFloat())
-                b.vertex(p, (p * -1f).normalized())
-            }
+    /**
+     * The workshop wall (S23): an inward-facing cylinder of radius [r] and height [h] standing on the floor. U runs once
+     * around from straight ahead (-z) towards +x, so the baked wall texture reads left to right from inside; V = 0 at
+     * the top (SceneMaterials.texture flips rows for the engine).
+     */
+    fun workshopWall(name: String, r: Float, h: Float, around: Int = 96): MeshResource {
+        val b = MeshBuilder((around + 1) * 2)
+        for (ii in 0..around) {
+            val u = ii.toFloat() / around
+            val a = 2 * PI * u
+            val x = (r * sin(a)).toFloat()
+            val z = (-r * cos(a)).toFloat()
+            val n = Vec3(-x, 0f, -z).normalized()
+            b.vertex(Vec3(x, 0f, z), n, Vector2(u, 1f))
+            b.vertex(Vec3(x, h, z), n, Vector2(u, 0f))
         }
-        val row = around + 1
-        for (jj in 0 until rings) for (ii in 0 until around) {
-            val a = jj * row + ii
-            b.tri(a, a + 1, a + row)
-            b.tri(a + 1, a + row + 1, a + row)
+        for (ii in 0 until around) {
+            val a = ii * 2
+            b.tri(a, a + 2, a + 1)
+            b.tri(a + 1, a + 2, a + 3)
         }
         return b.build(name)
     }

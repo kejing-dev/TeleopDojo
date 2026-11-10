@@ -124,6 +124,10 @@
     <string name="see_card">Scorecard</string>
     <string name="cmp_faster">%1$s was %3$d s faster than %2$s</string>
     <string name="cmp_slower">%1$s was %3$d s slower than %2$s</string>
+    <string name="cmp_same_time">%1$s and %2$s took about the same time</string>
+    <string name="cmp_more">%1$s finished more targets than %2$s (%3$s vs %4$s)</string>
+    <string name="cmp_fewer">%1$s finished fewer targets than %2$s (%3$s vs %4$s)</string>
+    <string name="cmp_none_done">Neither %1$s nor %2$s finished a target yet</string>
     <string name="cmp_table_less">, %1$d fewer table hits</string>
     <string name="cmp_table_more">, %1$d more table hits</string>
     <string name="map_clutch_x">Clutch %1$s×</string>
@@ -183,4 +187,7 @@
     <string name="open_panel">Open panel</string>
     <string name="look_level">Look straight ahead</string>
     <string name="look_level_2">and the panel opens</string>
+    <string name="look_left">Look a bit left</string>
+    <string name="look_right">Look a bit right</string>
+    <string name="look_turn_2">the panel opens beside the arm</string>
 </resources>

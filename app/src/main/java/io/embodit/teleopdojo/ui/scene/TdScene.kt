@@ -40,6 +40,7 @@ import io.embodit.teleopdojo.domain.Ur5e
 import io.embodit.teleopdojo.domain.Ur5eKinematics
 import io.embodit.teleopdojo.domain.Vec3
 import io.embodit.teleopdojo.domain.Workcell
+import io.embodit.teleopdojo.domain.WindowSpot
 import io.embodit.teleopdojo.domain.WorkcellPlacer
 import io.embodit.teleopdojo.domain.Yaw
 import io.embodit.teleopdojo.platform.TdLog
@@ -66,6 +67,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** The scene of the open Stage (debug hooks and the frame system talk to it). Main thread only. */
 internal object ActiveScene {
@@ -97,8 +99,8 @@ internal class Kit(
     val grid: MeshResource,
     val stripes: MeshResource,
     val stripesInk: MeshResource,
-    val dome: MeshResource,
-    val floor: MeshResource,
+    val domeWall: MeshResource,
+    val disc: MeshResource,
     val tableTop: Material,
     val tableLeg: Material,
     val gridMat: Material,
@@ -114,9 +116,6 @@ internal class Kit(
     val ripple: Material,
     val ghostLine: Material,
     val marker: Material,
-    val domeMat: Material,
-    val floorMat: Material,
-    val lamp: Material,
     val look: RobotLook,
 )
 
@@ -132,6 +131,7 @@ class TdScene {
 
     private val main = Handler(Looper.getMainLooper())
     private var scope: CoroutineScope? = null
+    private var appContext: Context? = null
     private val head = HeadTracker()
     val controllers = Controllers()
     private var content: SpatialViewContent? = null
@@ -188,6 +188,12 @@ class TdScene {
     private var tooCloseSinceMs = 0L
     private var inCone = false
     private var windowPose: Upright? = null
+    /** The head the window was opened from (profile 48: restore after − keeps that spot only while it is still clear). */
+    private var windowHead: HeadPose? = null
+    /** The arm as it stands now (Stage), for the window spot (profile 48). */
+    private var armWorld: List<Vec3> = emptyList()
+    private var spotTurn = 0f
+    private var spotAtMs = 0L
     private var windowEpoch = -1
     private var chipShown = false
     private var levelHintShown = false
@@ -211,6 +217,8 @@ class TdScene {
         if (attached || stageRoot != null) detach()
         startMs = SystemClock.elapsedRealtime()
         this.content = content
+        WindowCtl.spotClear = ::windowSpotClear
+        appContext = context.applicationContext
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         val root = Entity().named("stageRoot")
         content.addEntity(root)
@@ -261,20 +269,6 @@ class TdScene {
         root.addChild(sun)
         sun.setLocal(rotation = Quat4.fromTo(Vec3(0f, 0f, -1f), Vec3(0.25f, -0.8f, -0.5f).normalized()))
         frameDelay()
-        // the workshop dome (S23), hidden until chosen
-        val d = Entity().named("dome")
-        root.addChild(d)
-        model(k.dome, k.domeMat, "dome:shell", d)
-        model(k.floor, k.floorMat, "dome:floor", d).setLocal(position = Vec3(0f, 0.002f, 0f), rotation = Quat4.axisAngle(Vec3.RIGHT, Num.rad(-90f)), scale = Vec3(12f, 12f, 1f))
-        for (i in -2..2) model(k.cube, k.lamp, "dome:lamp$i", d).setLocal(position = Vec3(i * 1.6f, 4.2f, -1f), scale = Vec3(0.12f, 0.04f, 3.5f))
-        for (i in 0..5) {
-            val a = Num.rad(-60f + i * 24f)
-            model(k.cube, k.tableLeg, "dome:shelf$i", d).setLocal(position = Vec3(-sin(a) * 5f, 1.1f, -kotlin.math.cos(a) * 5f), rotation = Quat4.axisAngle(Vec3.UP, a), scale = Vec3(1.8f, 2.2f, 0.5f))
-        }
-        d.enabled = false
-        d.setOpacity(0f)
-        dome = d
-        frameDelay()
         // workcell root (table-local space) with the table, the post for "打开面板" and the robot
         val cr = Entity().named("cell")
         root.addChild(cr)
@@ -310,7 +304,46 @@ class TdScene {
         placeMarker = model(k.ring, k.marker, "placeMarker", root).also { it.enabled = false }
         built = true
         TdLog.i("SCENE built ms=${SystemClock.elapsedRealtime() - t0}")
+        buildWorkshop(root, k, sh)
     }
+
+    /**
+     * The workshop dome (S23), hidden until chosen. Built after the rest so its texture uploads (4096 x 512 wall,
+     * 2048 floor, 1536 ceiling) never hold the first frames: in the scene build they blocked the main thread ~6 s and
+     * tripped a focus ANR. Decode on IO, upload one part per frame, off the main thread when the runtime allows it.
+     */
+    private suspend fun buildWorkshop(root: Entity, k: Kit, sh: SharedResources) {
+        val t0 = SystemClock.elapsedRealtime()
+        val ctx = appContext
+        val env = withContext(Dispatchers.IO) { WorkshopTextures.decode(ctx) }
+        val m = SceneMaterials(sh)
+        val d = Entity().named("dome")
+        d.enabled = false
+        root.addChild(d)
+        val disc = Vec3(DOME_R * 2f, DOME_R * 2f, 1f)
+        for ((part, fallback) in listOf("wall" to TdColors.DomeWall, "floor" to TdColors.DomeFloor, "ceiling" to TdColors.DomeCeiling)) {
+            frameDelay()
+            val t1 = SystemClock.elapsedRealtime()
+            val b = env.bitmap(part)
+            val mat = if (b == null) m.unlit(fallback) else m.unlit(androidx.compose.ui.graphics.Color.White, upload(m, b))
+            when (part) {
+                "wall" -> model(k.domeWall, mat, "dome:wall", d)
+                "floor" -> model(k.disc, mat, "dome:floor", d).setLocal(position = Vec3(0f, 0.002f, 0f), rotation = Quat4.axisAngle(Vec3.RIGHT, Num.rad(-90f)), scale = disc)
+                else -> model(k.disc, mat, "dome:ceiling", d).setLocal(position = Vec3(0f, DOME_H, 0f), rotation = Quat4.axisAngle(Vec3.RIGHT, Num.rad(90f)), scale = disc)
+            }
+            TdLog.i("WORKSHOP $part ms=${SystemClock.elapsedRealtime() - t1}")
+        }
+        d.setOpacity(0f)
+        domeLevel = 0f
+        dome = d
+        TdLog.i("WORKSHOP built ms=${SystemClock.elapsedRealtime() - t0}")
+    }
+
+    /** Texture upload on a worker thread; falls back to the main thread if the runtime refuses. */
+    private suspend fun upload(m: SceneMaterials, b: android.graphics.Bitmap): com.pico.spatial.core.ecs.resource.TextureResource =
+        runCatching { withContext(Dispatchers.Default) { m.textureFlipped(b) } }
+            .onFailure { if (it is CancellationException) throw it; TdLog.w("WORKSHOP off-main upload refused: $it") }
+            .getOrNull() ?: m.textureFlipped(b)
 
     private val legs = ArrayList<Triple<Entity, Float, Float>>()
     private val drillEntities = ArrayList<Entity>()
@@ -336,8 +369,8 @@ class TdScene {
             grid = sh.keep(Meshes.grid("grid")),
             stripes = sh.keep(Meshes.stripes("stripes", 0)),
             stripesInk = sh.keep(Meshes.stripes("stripesInk", 1)),
-            dome = sh.keep(Meshes.dome("domeShell", 6f)),
-            floor = sh.keep(Shapes.disc("domeFloor", 48)),
+            domeWall = sh.keep(Meshes.workshopWall("domeWall", DOME_R, DOME_H)),
+            disc = sh.keep(Shapes.disc("domeDisc", 96)),
             tableTop = m.pbr(TdColors.TableTop, 0.9f),
             tableLeg = m.pbr(TdColors.TableLeg, 0.6f),
             gridMat = m.sheer(TdColors.GridLine, 0.22f),
@@ -353,9 +386,6 @@ class TdScene {
             ripple = m.sheer(TdColors.Error, 0.8f),
             ghostLine = m.sheer(TdColors.Ghost, 0.6f),
             marker = m.sheer(TdColors.Tether, 0.85f),
-            domeMat = m.unlit(TdColors.DomeWall),
-            floorMat = m.unlit(TdColors.DomeFloor),
-            lamp = m.unlit(TdColors.FrameWhite),
             look = look,
         )
     }
@@ -396,6 +426,7 @@ class TdScene {
         if (!attached && stageRoot == null) return
         attached = false
         if (ActiveScene.current === this) ActiveScene.current = null
+        WindowCtl.spotClear = { true }
         TdController.quitHook = null
         TdController.cellProvider = null
         TdController.placementHook = null
@@ -449,8 +480,9 @@ class TdScene {
         val rig = rig ?: return
         rig.onFrame(now)
         rig.stowBehind(pose)
-        // D9: the main window opens only while the head is level (the real head, not the debug `view` turn)
-        WindowCtl.stepGate(now, if (hasHead) Num.deg(pose.pitch) else null)
+        // D9: the main window opens only while the head is level (the real head, not the debug `view` turn);
+        // profile 48: and only once its spot keeps the workcell clear
+        WindowCtl.stepGate(now, if (hasHead) Num.deg(pose.pitch) else null, windowTurn(now))
         placeLevelHint()
         if (!attached || paused) return
         try {
@@ -683,6 +715,7 @@ class TdScene {
             tooCloseSinceMs = 0L
             if (close > 0.30f) tooClose = false
         }
+        armWorld = world + tip
         inCone = WindowCtl.open && windowPose != null && world.any { inWindowCone(it) }
         val wantOpacity = if (tooClose || inCone) 0.4f else 1f
         if (abs(wantOpacity - robotOpacity) > 0.01f) {
@@ -863,15 +896,52 @@ class TdScene {
     private fun estimateWindow(why: String) {
         val up = Placement.window(pose)
         windowPose = up
-        TdLog.i(String.format(Locale.US, "WINDOW estimate why=%s at=%s yaw=%.1f head=%s pitch=%.1f size=%.2fx%.2f m", why, TdLog.pos(up.position), Num.deg(up.yaw), TdLog.pos(pose.position), Num.deg(pose.pitch), PanelSizes.WINDOW_W * WindowCtl.dpM, PanelSizes.WINDOW_H * WindowCtl.dpM))
+        windowHead = pose
+        val gap = cell?.let { WindowSpot.gapDeg(pose.position, pose.yaw(0f), keepClear(it), spotSize()) }
+        TdLog.i(String.format(Locale.US, "WINDOW estimate why=%s at=%s yaw=%.1f head=%s pitch=%.1f size=%.2fx%.2f m gap=%.1f", why, TdLog.pos(up.position), Num.deg(up.yaw), TdLog.pos(pose.position), Num.deg(pose.pitch), PanelSizes.WINDOW_W * WindowCtl.dpM, PanelSizes.WINDOW_H * WindowCtl.dpM, gap ?: Float.NaN))
     }
 
-    /** "平视前方" while the window waits for a level head: on the line of sight, upright (yaw only, D9); same slot as the chip. */
+    private fun spotSize() = WindowSpot.Size(PanelSizes.WINDOW_W, PanelSizes.WINDOW_H, WindowCtl.dpM)
+
+    /** What the window must keep clear of: the workcell envelope, the arm as it stands, the drill's targets. */
+    private fun keepClear(c: io.embodit.teleopdojo.domain.Workcell): List<Vec3> {
+        val live = ArrayList<Vec3>(armWorld)
+        TdController.drill?.let { d ->
+            for (l in d.lights) live += c.toStage(l.spec.c)
+            for (b in d.blocks) live += c.toStage(b.c)
+        }
+        return WindowSpot.keepClear(c, live)
+    }
+
+    /** profile 48: how far the head still has to turn before a waiting open may go (0 = clear); 10 Hz while waiting. */
+    private fun windowTurn(now: Long): Float {
+        if (!WindowCtl.waiting || !hasHead) return 0f
+        val c = cell ?: return 0f
+        if (now - spotAtMs >= 100) {
+            spotAtMs = now
+            spotTurn = WindowSpot.turnDeg(pose, keepClear(c), spotSize())
+        }
+        return spotTurn
+    }
+
+    /** profile 48: is the spot the window was opened at still clear (restore after −)? */
+    fun windowSpotClear(): Boolean {
+        val c = cell ?: return true
+        val h = windowHead ?: return false
+        val gap = WindowSpot.gapDeg(h.position, h.yaw(0f), keepClear(c), spotSize())
+        TdLog.i(String.format(Locale.US, "WINDOW old spot gap=%.1f", gap))
+        return gap >= WindowSpot.MIN_GAP_DEG
+    }
+
+    /**
+     * "平视前方" while the window waits for a level head: on the line of sight, upright (yaw only, D9); "往左 / 往右看一点"
+     * while it waits for a clear spot (profile 48): a little to the side to turn to. Same slot as the chip.
+     */
     private fun placeLevelHint() {
         val rig = rig ?: return
-        if (WindowCtl.levelHint && hasHead) {
-            val h = Placement.levelHint(pose)
-            if (!levelHintShown) TdLog.i("LEVEL hint show at=${TdLog.pos(h.position)} pitch=${"%.1f".format(Locale.US, Num.deg(pose.pitch))}")
+        if ((WindowCtl.levelHint || WindowCtl.turnHint != 0) && hasHead) {
+            val h = if (WindowCtl.levelHint) Placement.levelHint(pose) else Placement.turnHint(pose, WindowCtl.turnHint)
+            if (!levelHintShown) TdLog.i("LEVEL hint show at=${TdLog.pos(h.position)} pitch=${"%.1f".format(Locale.US, Num.deg(pose.pitch))} turn=${WindowCtl.turnHint}")
             levelHintShown = true
             chipShown = false
             showAt(PanelIds.OPEN, h.position)
@@ -886,12 +956,12 @@ class TdScene {
         val rig = rig ?: return
         val c = cell ?: return
         if (WindowCtl.createdEpoch != windowEpoch && hasHead) {
-            val again = windowEpoch >= 0
+            val again = windowEpoch > 0
             windowEpoch = WindowCtl.createdEpoch
             if (windowEpoch > 0) estimateWindow(if (again) "reopen" else "first")
         }
         // "打开面板" on the post at the near corner (towards the window side) while the window is closed / minimised
-        if (!WindowCtl.levelHint) {
+        if (!WindowCtl.levelHint && WindowCtl.turnHint == 0) {
             val want = WindowCtl.chipWanted(now) && ui.screen != Screen.STARTING
             if (want) {
                 val p = c.toStage(c.hand(CHIP_CORNER) + Vec3(0f, CHIP_POST_H + 0.07f, 0f))
@@ -947,12 +1017,16 @@ class TdScene {
         /** Frame step cap: the drill clock stays close to real time even at the emulator's 2-4 fps. */
         private const val MAX_DT = 0.25f
         private const val SUN_LUX = 4.0f
+
+        /** The workshop room (tools/workshop/gen_workshop.py R / H): the textures are baked for these sizes. */
+        const val DOME_R = 6.5f
+        const val DOME_H = 4.8f
         private val STARTUP_LOG_MS = longArrayOf(1000, 3000, 5000)
         /** Left near corner (right hand), where the post with "打开面板" stands. */
-        val CHIP_CORNER = Vec3(-0.44f, 0f, 0.34f)
-        const val CHIP_POST_H = 0.35f
+        val CHIP_CORNER = WindowSpot.CHIP_CORNER
+        const val CHIP_POST_H = WindowSpot.CHIP_POST_H
         /** The tip tag: over the far right of the table (right hand), away from the window. */
-        val TIP_AT = Vec3(0.30f, 0.62f, -0.30f)
+        val TIP_AT = WindowSpot.TIP_LOCAL
     }
 }
 

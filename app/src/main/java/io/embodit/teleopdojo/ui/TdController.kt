@@ -406,14 +406,17 @@ object TdController {
         val mk = TdUiState.mapKey(r.mapping, r.scale)
         val cmpKey = "cmp_${r.level.name}_$mk"
         val prevOther = best.filterKeys { it.startsWith("cmp_${r.level.name}_") && it != cmpKey }
-        best[cmpKey] = Best(r.score, r.stars, r.metrics.timeS, r.metrics.steady, r.metrics.count(Oops.TABLE), 0)
+        best[cmpKey] = Best(r.score, r.stars, r.metrics.timeS, r.metrics.steady, r.metrics.count(Oops.TABLE), 0, r.metrics.doneCount, r.metrics.targets)
         val maps = HashMap(s.mapStats)
         val ms = maps[mk]
         maps[mk] = io.embodit.teleopdojo.ui.MapStat(maxOf(ms?.best ?: 0, r.score), (ms?.sumTime ?: 0f) + r.metrics.timeS, (ms?.n ?: 0) + 1)
         val plays = HashMap(s.levelPlays)
         plays[r.level] = (plays[r.level] ?: emptySet()) + r.mapping
         val compare = prevOther.entries.firstOrNull { (k, _) -> (k.contains("follow")) != (r.mapping == MappingMode.FOLLOW) }?.let { (k, o) ->
-            Compare.sentence(mk, r.metrics.timeS, r.metrics.count(Oops.TABLE), k.removePrefix("cmp_${r.level.name}_"), o.timeS, o.oops)
+            Compare.sentence(
+                CmpSide(mk, r.metrics.doneCount, r.metrics.targets, r.metrics.timeS, r.metrics.count(Oops.TABLE)),
+                CmpSide(k.removePrefix("cmp_${r.level.name}_"), o.done, o.total, o.timeS, o.oops),
+            )
         }
         val free = if (r.level == LevelId.FREE) s.freeRound + 1 else s.freeRound
         store?.saveBests(best)
@@ -462,10 +465,48 @@ object TdController {
     }
 }
 
-/** The comparison sentence of S15 ("离合 1.0× 比跟手快 12 s，撞桌少 3 次"): keys only; the window words it. */
+/** One side of the S15 comparison: mapping key, targets done of total, time and table hits of that round. */
+data class CmpSide(val map: String, val done: Int, val total: Int, val timeS: Float, val table: Int)
+
+/** What S15 says, decided here so the window only words it (QA #1 q1-2: an empty round was praised as faster). */
+data class CmpLine(val kind: Kind, val mine: String, val other: String, val dt: Int = 0, val dTable: Int = 0, val myDone: String = "", val otherDone: String = "") {
+    enum class Kind { MORE, FEWER, NONE_DONE, FASTER, SLOWER, SAME_TIME }
+}
+
+/**
+ * The comparison sentence of S15 ("离合 1.0× 比跟手快 12 秒，撞桌少 3 次"). Completion first: the round that finished more
+ * of its targets is the better one whatever the clock says. Time (and table hits) only between rounds with equal
+ * completion; two empty rounds are reported as empty, never as faster; a gap under 1 s is "about the same time".
+ */
 object Compare {
-    fun sentence(mine: String, myTime: Float, myTable: Int, other: String, otherTime: Float, otherTable: Int): String =
-        listOf(mine, other, Math.round(otherTime - myTime).toString(), (otherTable - myTable).toString()).joinToString("|")
+    fun of(mine: CmpSide, other: CmpSide): CmpLine? {
+        if (mine.total <= 0 || other.total <= 0 || mine.done < 0 || other.done < 0) return null
+        val myDone = "${mine.done}/${mine.total}"
+        val otherDone = "${other.done}/${other.total}"
+        // cross-multiplied so 3/5 vs 6/10 counts as equal
+        val c = (mine.done * other.total).compareTo(other.done * mine.total)
+        if (c != 0) return CmpLine(if (c > 0) CmpLine.Kind.MORE else CmpLine.Kind.FEWER, mine.map, other.map, myDone = myDone, otherDone = otherDone)
+        if (mine.done == 0) return CmpLine(CmpLine.Kind.NONE_DONE, mine.map, other.map, myDone = myDone, otherDone = otherDone)
+        val dt = Math.round(other.timeS - mine.timeS)
+        val kind = when {
+            dt > 0 -> CmpLine.Kind.FASTER
+            dt < 0 -> CmpLine.Kind.SLOWER
+            else -> CmpLine.Kind.SAME_TIME
+        }
+        return CmpLine(kind, mine.map, other.map, kotlin.math.abs(dt), other.table - mine.table, myDone, otherDone)
+    }
+
+    /** "kind|mine|other|dt|dTable|myDone|otherDone", the form kept in [TdUiState.compare]. */
+    fun encode(l: CmpLine): String = listOf(l.kind.name, l.mine, l.other, l.dt, l.dTable, l.myDone, l.otherDone).joinToString("|")
+
+    fun decode(raw: String): CmpLine? {
+        val f = raw.split('|')
+        if (f.size < 7) return null
+        val kind = runCatching { CmpLine.Kind.valueOf(f[0]) }.getOrNull() ?: return null
+        return CmpLine(kind, f[1], f[2], f[3].toIntOrNull() ?: 0, f[4].toIntOrNull() ?: 0, f[5], f[6])
+    }
+
+    fun sentence(mine: CmpSide, other: CmpSide): String? = of(mine, other)?.let(::encode)
 }
 
 /** Difficulties in order (for the intro segments). */

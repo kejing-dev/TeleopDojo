@@ -57,6 +57,17 @@ tools/dev.sh cmd 'goto S09'
 | `view DEG` | placements use the head turned DEG (+ left); `view 45` + `aside` brings the workcell in front of the camera |
 | `coach` `exit` `where` `fit [reset]` | first-time tips / quit through the keys / pose dump / text overflow summary |
 
+## Window spot (profile 48, QA #2 q2-1)
+
+The system opens the main window 1.75 m straight ahead of the head and SDK 6.1 cannot place or move it, so every open
+(start, the 打开面板 chip, [叫回面板], restore after −) waits in `WindowCtl`'s gate until the head is level AND
+`WindowSpot.turnDeg` (domain/Layout.kt) is 0: the window frame + TabBar + Toolbar strip >= 10° from the table, base,
+gripper workspace, targets, tip tag and the live arm. Meanwhile the Stage shows 往左看一点 / 往右看一点. Logs:
+`TURN hint=1 need=29` (re-logged every 5°), `LEVEL ok ... spot clear -> open`, `WINDOW estimate why=first|reopen ... gap=13.2`.
+To test on the emulator: face the workcell (camera yaw about -44, pitch about -3), `close` then tap the chip (or `recall`),
+check the hint, turn left until it opens (about yaw -15 or more), `resume`. `view DEG` does not move this gate (it reads the real head).
+Per-path unit tests: `PlacementTest` (launch / chip / recall / aside / restore / gate).
+
 ## Screenshot list for QA (per language: `lang zh`, `lang en`)
 
 Cold start (S01 → S05), S03, S06 (each drill), S07 / S08 (`grip 1`), S09, S10, S11, S12, S13, S15, S14, S16, S17 +

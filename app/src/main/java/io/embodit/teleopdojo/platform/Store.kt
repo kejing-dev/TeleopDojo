@@ -44,7 +44,7 @@ class Store(context: Context) {
             val s = p.getString("best_$k", null) ?: continue
             val f = s.split(';')
             if (f.size < 6) continue
-            runCatching { out[k] = Best(f[0].toInt(), f[1].toInt(), f[2].toFloat(), f[3].toInt(), f[4].toInt(), f[5].toInt()) }
+            runCatching { out[k] = Best(f[0].toInt(), f[1].toInt(), f[2].toFloat(), f[3].toInt(), f[4].toInt(), f[5].toInt(), f.getOrNull(6)?.toInt() ?: -1, f.getOrNull(7)?.toInt() ?: -1) }
         }
         return out
     }
@@ -52,7 +52,7 @@ class Store(context: Context) {
     fun saveBests(m: Map<String, Best>) {
         val e = p.edit()
         for (k in p.getStringSet("bestKeys", emptySet())!!) e.remove("best_$k")
-        for ((k, b) in m) e.putString("best_$k", "${b.score};${b.stars};${b.timeS};${b.steady};${b.oops};${b.demo}")
+        for ((k, b) in m) e.putString("best_$k", "${b.score};${b.stars};${b.timeS};${b.steady};${b.oops};${b.demo};${b.done};${b.total}")
         e.putStringSet("bestKeys", m.keys.toSet()).apply()
     }
 

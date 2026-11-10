@@ -54,6 +54,8 @@ import io.embodit.teleopdojo.domain.LevelId
 import io.embodit.teleopdojo.domain.MappingMode
 import io.embodit.teleopdojo.domain.Oops
 import io.embodit.teleopdojo.domain.Scoring
+import io.embodit.teleopdojo.ui.CmpLine
+import io.embodit.teleopdojo.ui.Compare
 import io.embodit.teleopdojo.ui.ControllerState
 import io.embodit.teleopdojo.ui.DIFFS
 import io.embodit.teleopdojo.ui.Hint
@@ -219,19 +221,25 @@ private fun hintText(state: TdUiState): String? = when (state.hint) {
     Hint.DROPPED -> null
 }
 
-/** The comparison sentence of S15 from TdController's "mine|other|faster s|fewer table hits" keys. */
+/** The comparison sentence of S15, worded from [Compare]'s verdict (completion first, then time). */
 @Composable
 private fun compareText(raw: String): String {
-    val f = raw.split('|')
-    if (f.size < 4) return raw
-    val mine = mapLabel(f[0])
-    val other = mapLabel(f[1])
-    val dt = f[2].toIntOrNull() ?: 0
-    val dTable = f[3].toIntOrNull() ?: 0
-    val a = if (dt >= 0) rs(R.string.cmp_faster, mine, other, dt) else rs(R.string.cmp_slower, mine, other, -dt)
+    val l = Compare.decode(raw) ?: return ""
+    val mine = mapLabel(l.mine)
+    val other = mapLabel(l.other)
+    val a = when (l.kind) {
+        CmpLine.Kind.MORE -> rs(R.string.cmp_more, mine, other, l.myDone, l.otherDone)
+        CmpLine.Kind.FEWER -> rs(R.string.cmp_fewer, mine, other, l.myDone, l.otherDone)
+        CmpLine.Kind.NONE_DONE -> rs(R.string.cmp_none_done, mine, other)
+        CmpLine.Kind.FASTER -> rs(R.string.cmp_faster, mine, other, l.dt)
+        CmpLine.Kind.SLOWER -> rs(R.string.cmp_slower, mine, other, l.dt)
+        CmpLine.Kind.SAME_TIME -> rs(R.string.cmp_same_time, mine, other)
+    }
+    val timed = l.kind == CmpLine.Kind.FASTER || l.kind == CmpLine.Kind.SLOWER || l.kind == CmpLine.Kind.SAME_TIME
     val b = when {
-        dTable > 0 -> rs(R.string.cmp_table_less, dTable)
-        dTable < 0 -> rs(R.string.cmp_table_more, -dTable)
+        !timed -> ""
+        l.dTable > 0 -> rs(R.string.cmp_table_less, l.dTable)
+        l.dTable < 0 -> rs(R.string.cmp_table_more, -l.dTable)
         else -> ""
     }
     return a + b
@@ -751,6 +759,19 @@ internal fun OpenChip(show: Boolean) {
             Column(Modifier.fillMaxSize().clip(RoundedCornerShape(24.dp)).background(TdColors.TagBg).padding(horizontal = 16.dp, vertical = 6.dp).probe("look_level"), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Text(text = rs(R.string.look_level), style = TdType.title.copy(fontSize = 24.sp, lineHeight = 30.sp), color = TdColors.TagInk, maxLines = 1, onTextLayout = fits("chip/look_level"))
                 Text(text = rs(R.string.look_level_2), style = TdType.body, color = TdColors.TagInk, maxLines = 1, onTextLayout = fits("chip/look_level_2"))
+            }
+            return@Box
+        }
+        val turn = io.embodit.teleopdojo.ui.window.WindowCtl.turnHint
+        if (turn != 0) {
+            // profile 48: the window waits until its spot keeps the arm clear; which way to look
+            Column(Modifier.fillMaxSize().clip(RoundedCornerShape(24.dp)).background(TdColors.TagBg).padding(horizontal = 16.dp, vertical = 6.dp).probe("look_turn"), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (turn > 0) Icon(painter = painterResource(R.drawable.ic_chevron_left), contentDescription = null, modifier = Modifier.size(28.dp), tint = TdColors.TagInk)
+                    Text(text = rs(if (turn > 0) R.string.look_left else R.string.look_right), style = TdType.title.copy(fontSize = 24.sp, lineHeight = 30.sp), color = TdColors.TagInk, maxLines = 1, onTextLayout = fits("chip/look_turn"))
+                    if (turn < 0) Icon(painter = painterResource(R.drawable.ic_chevron_right), contentDescription = null, modifier = Modifier.size(28.dp), tint = TdColors.TagInk)
+                }
+                Text(text = rs(R.string.look_turn_2), style = TdType.body, color = TdColors.TagInk, maxLines = 1, onTextLayout = fits("chip/look_turn_2"))
             }
             return@Box
         }
